@@ -1,13 +1,12 @@
-// Package userstore is an in-memory user database shared by every stage.
-// It intentionally has no "admin" account: the /admin endpoint in the JWT
-// stages authorizes purely on the role claim inside the token, never by
-// looking up an admin row. That is the point of the exercises — a forged
-// claim is enough if verification is broken.
+// Package userstore は全stage共通のインメモリユーザーDB。
+// 意図的に「admin」アカウントを持たない。JWT stageの/adminは
+// adminロウの検索ではなく、トークン内のroleクレームだけで認可する。
+// 演習の要点はここにある — 検証が壊れれば、偽のクレーム1つで十分。
 package userstore
 
 import "errors"
 
-// User is a minimal account record.
+// User は最小限のアカウントレコード。
 type User struct {
 	Username string
 	Password string
@@ -19,10 +18,10 @@ var users = map[string]User{
 	"bob":   {Username: "bob", Password: "hunter2", Role: "user"},
 }
 
-// ErrInvalidCredentials is returned when username/password don't match.
+// ErrInvalidCredentials はusername/passwordが一致しないときに返す。
 var ErrInvalidCredentials = errors.New("invalid username or password")
 
-// Authenticate checks a username/password pair and returns the account.
+// Authenticate はusername/passwordの組を検証し、アカウントを返す。
 func Authenticate(username, password string) (User, error) {
 	u, ok := users[username]
 	if !ok || u.Password != password {
@@ -31,8 +30,8 @@ func Authenticate(username, password string) (User, error) {
 	return u, nil
 }
 
-// Lookup returns an account by username, for handlers that need the
-// profile behind a verified token subject.
+// Lookup はusernameでアカウントを取得する。検証済みトークンのsubject
+// からプロフィールを引くハンドラが使う。
 func Lookup(username string) (User, bool) {
 	u, ok := users[username]
 	return u, ok

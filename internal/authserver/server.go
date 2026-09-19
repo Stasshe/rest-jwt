@@ -1,7 +1,7 @@
-// Package authserver is the shared HTTP plumbing for every JWT stage
-// (stage2-5). Only the Codec differs between stages — login/me/admin/logout
-// routing, cookie handling, and status codes stay identical, so each stage
-// isolates exactly one verification bug (or its fix).
+// Package authserver はJWT各stage(stage2〜5)共通のHTTP配線。
+// stage間で違うのはCodecだけ — login/me/admin/logoutのルーティング、
+// Cookieの扱い、ステータスコードは全stageで同一にし、各stageは
+// 検証の脆弱性(またはその修正)1点だけを切り出す。
 package authserver
 
 import (
@@ -11,7 +11,7 @@ import (
 	"rest-jwt/internal/userstore"
 )
 
-// Claims is the payload every codec issues and verifies.
+// Claims は各codecが発行・検証するペイロード。
 type Claims struct {
 	Subject   string `json:"sub"`
 	Role      string `json:"role"`
@@ -19,22 +19,22 @@ type Claims struct {
 	ExpiresAt int64  `json:"exp"`
 }
 
-// Codec turns Claims into a token string and back. Each stage supplies a
-// different implementation; that is the only thing that changes.
+// Codec はClaimsをトークン文字列に変換し、また元に戻す。
+// stageごとに実装が異なる、変わるのはここだけ。
 type Codec interface {
 	Issue(c Claims) (token string, err error)
 	Verify(token string) (Claims, error)
 }
 
-// PublicKeyPublisher is implemented by codecs that expose a public key
-// (stage4: the RS256/HS256 confusion target). authserver registers
-// GET /pubkey only when the codec supports it.
+// PublicKeyPublisher は公開鍵を公開するcodecが実装する
+// (stage4: RS256/HS256混同攻撃の標的)。authserverはcodecが
+// これを実装している場合のみGET /pubkeyを登録する。
 type PublicKeyPublisher interface {
 	PublicKeyPEM() []byte
 }
 
-// Refresher is implemented by codecs that support short-lived access
-// tokens backed by a server-side refresh session (stage5).
+// Refresher はサーバ側のリフレッシュセッションで裏打ちされた
+// 短命アクセストークンをサポートするcodecが実装する(stage5)。
 type Refresher interface {
 	IssueRefresh(subject, role string) (refreshToken string, err error)
 	Refresh(refreshToken string) (accessToken string, err error)
@@ -46,7 +46,7 @@ const (
 	refreshCookie = "refresh_token"
 )
 
-// New builds the mux for one stage.
+// New は1つのstage分のmuxを構築する。
 func New(codec Codec) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /login", handleLogin(codec))
@@ -129,9 +129,9 @@ func handleMe(codec Codec) http.HandlerFunc {
 	}
 }
 
-// handleAdmin authorizes purely on the role claim inside the token — no
-// database lookup. That is deliberate: it is the shortest path from "broken
-// verification" to "privilege escalation" in these exercises.
+// handleAdmin はトークン内のroleクレームだけで認可する — DB参照はしない。
+// 意図的にそうしている: 「検証が壊れる」から「権限昇格」までの最短経路を
+// この演習で示すため。
 func handleAdmin(codec Codec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := verifyRequest(w, codec, r)

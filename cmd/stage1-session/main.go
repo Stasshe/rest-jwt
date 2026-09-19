@@ -1,6 +1,6 @@
-// Stage 1: baseline REST resource protected by classic server-side session
-// cookies. No JWT yet — this is the reference point every later stage gets
-// compared against. Run: go run ./cmd/stage1-session
+// Stage 1: 古典的なサーバ側セッションCookieで守るRESTリソース(baseline)。
+// まだJWTは出てこない — これ以降の全stageが比較される基準点。
+// 実行: go run ./cmd/stage1-session
 package main
 
 import (
@@ -15,7 +15,7 @@ import (
 	"rest-jwt/internal/userstore"
 )
 
-// --- REST resource: /items -------------------------------------------------
+// --- RESTリソース: /items ------------------------------------------------
 
 type item struct {
 	ID   string `json:"id"`
@@ -28,7 +28,7 @@ var (
 	nextID  = 2
 )
 
-// --- session store -----------------------------------------------------
+// --- セッションストア -----------------------------------------------------
 
 type session struct {
 	Username string
@@ -65,7 +65,7 @@ func requireSession(w http.ResponseWriter, r *http.Request) (session, bool) {
 	return s, ok
 }
 
-// --- handlers ------------------------------------------------------------
+// --- ハンドラ ------------------------------------------------------------
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	var body struct{ Username, Password string }
@@ -159,7 +159,7 @@ func handleItem(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		itemsMu.Lock()
-		items[id] = item{ID: id, Name: body.Name} // idempotent: same body -> same end state
+		items[id] = item{ID: id, Name: body.Name} // べき等: 同じボディなら結果も同じ状態になる
 		itemsMu.Unlock()
 		w.WriteHeader(http.StatusOK)
 

@@ -1,9 +1,10 @@
-// Package securecodec is the fixed implementation: golang-jwt/v5 with an
-// explicit algorithm allow-list (never trust the token's own "alg"
-// header), a long random secret, and a short-lived access token backed by
-// a server-side refresh session — so a compromised access token expires in
-// minutes, and logout can actually revoke something (the refresh session),
-// which is the thing plain stateless JWTs can't do.
+// Package securecodec は修正版の実装。golang-jwt/v5を使い、
+// アルゴリズムを明示的に許可リスト化し(トークン自身の"alg"ヘッダを
+// 絶対に信用しない)、十分に長いランダム鍵を使い、短命なアクセス
+// トークンをサーバ側のリフレッシュセッションで裏打ちする。
+// これにより漏洩したアクセストークンは数分で失効し、ログアウトは
+// リフレッシュセッションという「実際に取り消せるもの」を持つ
+// — 素のステートレスJWTにはできないことをここで補っている。
 package securecodec
 
 import (
@@ -52,8 +53,8 @@ func (c *Codec) Issue(claims authserver.Claims) (string, error) {
 }
 
 func (c *Codec) Verify(tokenStr string) (authserver.Claims, error) {
-	// WithValidMethods is the fix for stage2/stage4: the algorithm is
-	// pinned by the server, never read from the token's own header.
+	// WithValidMethodsがstage2/stage4への修正になる: アルゴリズムは
+	// サーバ側で固定され、トークン自身のヘッダからは一切読まれない。
 	parsed, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		return c.secret, nil
 	}, jwt.WithValidMethods([]string{"HS256"}))

@@ -1,8 +1,7 @@
-// bruteforce takes a captured HS256 JWT and a wordlist, and tries each
-// word as the HMAC secret until one reproduces the token's signature.
-// This is what "a weak JWT secret" actually means in practice: it is not
-// about reading the key off the wire (it never is), it's about the key
-// space being small enough to search.
+// bruteforce は捕まえたHS256のJWTとワードリストを受け取り、単語を
+// 1つずつHMAC鍵として試し、トークンの署名を再現できるものを探す。
+// 「JWTの鍵が弱い」の実体はこれ — 通信路上から鍵を読み取れるという
+// 話では決してなく、鍵空間が総当たりできるほど狭いという話。
 //
 //	go run ./tools/bruteforce -token "$TOKEN" -wordlist tools/bruteforce/wordlist.txt
 package main

@@ -1,6 +1,6 @@
-// Stage 3: verification itself is correct (alg=none is rejected), but the
-// HMAC secret is short enough to find by dictionary attack.
-// Run: go run ./cmd/stage3-jwt-weak-secret — see docs/06_attack_weak_secret.md
+// Stage 3: 検証ロジック自体は正しい(alg=noneは拒否される)が、
+// HMAC鍵が辞書攻撃で見つかる強度しかない。
+// 実行: go run ./cmd/stage3-jwt-weak-secret — docs/06_attack_weak_secret.md 参照
 package main
 
 import (
@@ -13,7 +13,7 @@ import (
 
 func main() {
 	codec := hmaccodec.Codec{
-		Secret:       []byte("sunny"), // <- the bug: guessable, in tools/bruteforce/wordlist.txt
+		Secret:       []byte("sunny"), // <- ここがバグ: 推測可能。tools/bruteforce/wordlist.txt に含まれる
 		AllowAlgNone: false,
 	}
 	log.Println("stage3-jwt-weak-secret listening on :8080")

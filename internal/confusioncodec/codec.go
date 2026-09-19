@@ -1,13 +1,13 @@
-// Package confusioncodec issues RS256 tokens but its verifier still
-// branches on the attacker-controlled "alg" header. When alg=HS256, it
-// verifies the HMAC using the RSA *public* key's PEM bytes as the secret —
-// the same bytes it happily publishes at GET /pubkey. Since RSA public
-// keys are meant to be public, an attacker who reads them can sign their
-// own HS256 tokens with them.
+// Package confusioncodec はRS256でトークンを発行するが、検証側は
+// 攻撃者が操作できる"alg"ヘッダで依然として分岐する。alg=HS256の
+// ときは、RSA*公開*鍵のPEMバイト列をHMACの"秘密"鍵として使って
+// しまう — その同じバイト列をGET /pubkeyで自ら公開しているのに。
+// RSA公開鍵は名前の通り公開が前提なので、それを読んだ攻撃者は
+// 自分でHS256署名したトークンを作れてしまう。
 //
-// This is the classic RS256/HS256 "algorithm confusion" bug (CVE-2016-5431
-// class): the fix is never to let the token's own header choose the
-// verification algorithm.
+// これは実在したRS256/HS256「アルゴリズム混同」脆弱性のクラス
+// (CVE-2016-5431系)。修正は「トークン自身のヘッダに検証方式を
+// 選ばせない」こと、この一点に尽きる。
 package confusioncodec
 
 import (
@@ -32,7 +32,7 @@ type Codec struct {
 	public  *rsa.PublicKey
 }
 
-// New generates a fresh RSA keypair for the server process.
+// New はサーバプロセス用に新しいRSA鍵ペアを生成する。
 func New() (*Codec, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -108,8 +108,8 @@ func (c *Codec) Verify(token string) (authserver.Claims, error) {
 			return authserver.Claims{}, errors.New("signature mismatch")
 		}
 	case "HS256":
-		// BUG: the "secret" is the public key's own PEM bytes — public by
-		// design, so anyone who called GET /pubkey already has it.
+		// バグ: ここでの"秘密鍵"は公開鍵自身のPEMバイト列であり、
+		// 公開が前提の値。GET /pubkeyを呼んだ者は全員既に持っている。
 		mac := hmac.New(sha256.New, c.PublicKeyPEM())
 		mac.Write([]byte(signingInput))
 		want := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))

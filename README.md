@@ -20,9 +20,9 @@ REST APIの認証をセッションCookieからJWTへ置き換える過程を、
 
 各stageは同じ`:8080`で1つずつ起動する(複数同時起動しない)。サーバコードはstage間で使い回せる部分を`internal/authserver`に共通化し、stageごとの違いは`internal/*codec`の検証ロジック1点に絞ってある。攻撃には`tools/forge`(トークン偽造)と`tools/bruteforce`(鍵の総当たり)を使う。
 
-## 進め方(目安 約4時間)
+## 進め方(目安 約4時間20分)
 
-1. `docs/01_rest.md` — RESTとセキュリティ(20分)
+1. `docs/01_rest.md` — RESTの仕組みとフロー(40分)
 2. `docs/02_cookie_session.md` — Cookieセッション認証(40分)
 3. `docs/03_jwt_structure.md` — JWTの構造(30分)
 4. `docs/04_jwt_naive.md` — JWT認証サーバを動かす(20分)

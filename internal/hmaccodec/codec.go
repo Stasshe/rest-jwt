@@ -1,18 +1,18 @@
-// Package hmaccodec is a hand-rolled JWT codec (no library) used to teach
-// the wire format itself: header.payload.signature, each part base64url
-// encoded, joined by dots.
+// Package hmaccodec はライブラリを使わない手実装のJWT codec。
+// ワイヤーフォーマットそのもの(header.payload.signature、各部を
+// base64urlエンコードしてドットで繋ぐ)を理解させるために使う。
 //
-// It has one configurable bug, used by two different stages:
+// 設定で切り替えられるバグを1つ持ち、それを2つのstageで使い回す。
 //
-//   - AllowAlgNone: the verifier trusts the attacker-controlled "alg"
-//     header and skips signature checking entirely when it says "none".
-//     This is the classic 2015-era alg:none vulnerability class.
-//   - a short Secret: verification itself is correct, but the HMAC key is
-//     weak enough to be found by brute force / dictionary attack.
+//   - AllowAlgNone: 攻撃者が操作できる"alg"ヘッダを信用し、
+//     "none"のときは署名検証を丸ごとスキップする。
+//     2015年前後に実際に見つかったalg:none脆弱性のクラス。
+//   - 短いSecret: 検証ロジック自体は正しいが、HMAC鍵が
+//     ブルートフォース/辞書攻撃で見つかる強度しかない。
 //
-// Issue always signs correctly with HS256; only Verify can be broken, which
-// mirrors how these bugs happen in real code (a permissive verifier, not a
-// permissive issuer).
+// Issueは常にHS256で正しく署名する。壊れうるのはVerifyだけ
+// — 実際のバグも「甘すぎる発行者」ではなく「甘すぎる検証者」で
+// 起きることが多いのを反映している。
 package hmaccodec
 
 import (
@@ -29,7 +29,7 @@ import (
 
 type Codec struct {
 	Secret       []byte
-	AllowAlgNone bool // stage2: verifier bug
+	AllowAlgNone bool // stage2: 検証側のバグ
 }
 
 type header struct {
@@ -91,8 +91,8 @@ func (c Codec) Verify(token string) (authserver.Claims, error) {
 		if !c.AllowAlgNone {
 			return authserver.Claims{}, errors.New(`alg "none" rejected`)
 		}
-		// BUG: alg=none means there is nothing to verify — the token's
-		// signature part is ignored entirely.
+		// バグ: alg=noneは「検証すべきものが何もない」という意味になり、
+		// トークンの署名部分は完全に無視される。
 	default:
 		return authserver.Claims{}, errors.New("unsupported alg")
 	}

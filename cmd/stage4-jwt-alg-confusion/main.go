@@ -1,8 +1,9 @@
-// Stage 4: server issues RS256 tokens and publishes its public key at
-// GET /pubkey (as real JWKS endpoints do). Its verifier still trusts the
-// token's own "alg" header, so an HS256 token signed with that same public
-// key is accepted. Run: go run ./cmd/stage4-jwt-alg-confusion
-// see docs/07_attack_alg_confusion.md
+// Stage 4: サーバはRS256でトークンを発行し、公開鍵をGET /pubkeyで
+// 公開する(実際のJWKSエンドポイントと同じ)。しかし検証側はトークン
+// 自身の"alg"ヘッダを依然として信用しており、その公開鍵で署名した
+// HS256トークンも受理してしまう。
+// 実行: go run ./cmd/stage4-jwt-alg-confusion
+// docs/07_attack_alg_confusion.md 参照
 package main
 
 import (

