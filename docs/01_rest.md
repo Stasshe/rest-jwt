@@ -31,10 +31,10 @@ DELETE /items/{id}  削除(メンバーに対して)
 
 ## 1往復の中身を分解する
 
-`curl -v`で1往復の生のやり取りを見る。まず`stage1-session`を起動する。
+`curl -v`で1往復の生のやり取りを見る。まず認証なしの`stage0-rest`を起動する — この章は認証が出てくる前に、REST自体の仕組みだけに集中する。
 
 ```
-go run ./cmd/stage1-session
+go run ./cmd/stage0-rest
 ```
 
 ```
@@ -84,28 +84,34 @@ RESTでは各メソッドに「安全性(safe)」と「べき等性(idempotent)�
 
 ## ハンズオン: メソッドとステータスコードを動かして確認する
 
+`internal/itemsresource/resource.go`が実体。1メソッド1ハンドラで構成されており、`cmd/stage0-rest/main.go`がそれをそのままルーティングしているだけ、というのを先にコードで確認しておく。
+
 ```
 # 一覧(安全・べき等) — 何度叩いても状態は変わらない
 curl -i localhost:8080/items
 
-# 未認証でPOST(非べき等な操作は保護されているべき) → 401
-curl -i -X POST localhost:8080/items -d '{"Name":"x"}'
+# 単一リソース取得。存在すれば200、存在しなければ404
+curl -i localhost:8080/items/1
+curl -i localhost:8080/items/999
 
-# ログインしてから作成 → 201 Created、Locationヘッダに新しいリソースのURI
-curl -c /tmp/cookies.txt -X POST localhost:8080/login \
-  -d '{"Username":"alice","Password":"password123"}'
-curl -i -b /tmp/cookies.txt -X POST localhost:8080/items -d '{"Name":"widget"}'
+# 作成 → 201 Created、Locationヘッダに新しいリソースのURIが乗る
+curl -i -X POST localhost:8080/items -d '{"Name":"widget"}'
+curl -i localhost:8080/items/2   # ↑のLocationが指す場所を実際に取得してみる
 
-# 同じPUTを2回叩く → べき等なので結果は変わらないことを確認
-curl -i -b /tmp/cookies.txt -X PUT localhost:8080/items/1 -d '{"Name":"renamed"}'
-curl -i -b /tmp/cookies.txt -X PUT localhost:8080/items/1 -d '{"Name":"renamed"}'
-curl localhost:8080/items
+# 同じPUTを2回叩く → べき等なので結果(200・最終状態)は変わらない
+curl -i -X PUT localhost:8080/items/1 -d '{"Name":"renamed"}'
+curl -i -X PUT localhost:8080/items/1 -d '{"Name":"renamed"}'
+
+# DELETEを2回叩く → べき等なので2回目も204。エラーにはならない
+curl -i -X DELETE localhost:8080/items/1
+curl -i -X DELETE localhost:8080/items/1
+curl -i localhost:8080/items/1   # 消えたので404
 ```
 
-`201`のレスポンスヘッダに`Location: /items/2`のようなURIが乗っていることを確認する。「作成した場所を教える」のもRESTの流儀の一つ。
+`201`のレスポンスヘッダに`Location: /items/2`のようなURIが乗っていることを確認する。「作成した場所を教える」のもRESTの流儀の一つ。DELETEを2回叩いてもエラーにならない点は、べき等性の定義(「最終状態が変わらない」であって「毎回同じレスポンスが返る」ではない)を体感するための確認。
 
 ## ステートレス性とセキュリティ
 
 RESTは「サーバは状態を持たない」ことを理想とするが、認証は「このリクエストは誰のものか」という状態そのものを要求する。ここに矛盾があり、次章のCookieセッションは「サーバ側に状態を持つ」ことでこれを解決し、3章以降のJWTは「リクエスト自体に署名付きで状態を埋め込む」ことでこれを解決する。どちらもトレードオフであり、この対立を意識しながら読み進める。
 
-また、べき等性の話は攻撃面にも直結する。ブラウザは`<form>`や`<img>`タグから単純な`GET`/`POST`をクロスサイトに送れてしまう(CSRFの土台)。副作用のある操作を安全であるべきGETに実装する、認証なしでPOSTを通す、といった設計ミスは、この意味論を破っているという意味でも即座に危険と分かる。
+また、べき等性の話は攻撃面にも直結する。ブラウザは`<form>`や`<img>`タグから単純な`GET`/`POST`をクロスサイトに送れてしまう(CSRFの土台)。副作用のある操作を安全であるべきGETに実装する、認証なしでPOSTを通す、といった設計ミスは、この意味論を破っているという意味でも即座に危険と分かる。この`stage0-rest`には認証が一切無い — 次章でこの同じリソースに認証を重ねる。

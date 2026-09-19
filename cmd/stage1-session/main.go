@@ -1,6 +1,8 @@
-// Stage 1: 古典的なサーバ側セッションCookieで守るRESTリソース(baseline)。
-// まだJWTは出てこない — これ以降の全stageが比較される基準点。
-// 実行: go run ./cmd/stage1-session
+// Stage 1: stage0と同じ/itemsリソースに、古典的なサーバ側セッション
+// Cookieで認証を1枚重ねる。安全なメソッド(GET)は素通し、副作用のある
+// メソッド(POST/PUT/DELETE)だけをセッションミドルウェアでガードする
+// — RESTの意味論(安全性・べき等性)と認証の境界線がどこで交わるかを
+// 見る回。実行: go run ./cmd/stage1-session
 package main
 
 import (
@@ -9,23 +11,10 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strconv"
 	"sync"
 
+	"rest-jwt/internal/itemsresource"
 	"rest-jwt/internal/userstore"
-)
-
-// --- RESTリソース: /items ------------------------------------------------
-
-type item struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
-var (
-	itemsMu sync.Mutex
-	items   = map[string]item{"1": {ID: "1", Name: "first item"}}
-	nextID  = 2
 )
 
 // --- セッションストア -----------------------------------------------------
@@ -57,15 +46,19 @@ func currentSession(r *http.Request) (session, bool) {
 	return s, ok
 }
 
-func requireSession(w http.ResponseWriter, r *http.Request) (session, bool) {
-	s, ok := currentSession(r)
-	if !ok {
-		http.Error(w, `{"error":"login required"}`, http.StatusUnauthorized)
+// requireSession は副作用のあるハンドラの前段に挟むミドルウェア。
+// セッションが無ければ401を返してnextを呼ばない。
+func requireSession(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := currentSession(r); !ok {
+			http.Error(w, `{"error":"login required"}`, http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
 	}
-	return s, ok
 }
 
-// --- ハンドラ ------------------------------------------------------------
+// --- 認証ハンドラ ----------------------------------------------------------
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	var body struct{ Username, Password string }
@@ -106,81 +99,28 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleMe(w http.ResponseWriter, r *http.Request) {
-	s, ok := requireSession(w, r)
+	s, ok := currentSession(r)
 	if !ok {
+		http.Error(w, `{"error":"login required"}`, http.StatusUnauthorized)
 		return
 	}
 	_ = json.NewEncoder(w).Encode(map[string]string{"username": s.Username, "role": s.Role})
 }
 
-func handleItemsCollection(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		itemsMu.Lock()
-		defer itemsMu.Unlock()
-		list := make([]item, 0, len(items))
-		for _, it := range items {
-			list = append(list, it)
-		}
-		_ = json.NewEncoder(w).Encode(list)
-
-	case http.MethodPost:
-		if _, ok := requireSession(w, r); !ok {
-			return
-		}
-		var body struct{ Name string }
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Name == "" {
-			http.Error(w, `{"error":"name required"}`, http.StatusBadRequest)
-			return
-		}
-		itemsMu.Lock()
-		id := strconv.Itoa(nextID)
-		it := item{ID: id, Name: body.Name}
-		items[id] = it
-		nextID++
-		itemsMu.Unlock()
-		w.Header().Set("Location", "/items/"+id)
-		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(it)
-	}
-}
-
-func handleItem(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-
-	switch r.Method {
-	case http.MethodPut:
-		if _, ok := requireSession(w, r); !ok {
-			return
-		}
-		var body struct{ Name string }
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Name == "" {
-			http.Error(w, `{"error":"name required"}`, http.StatusBadRequest)
-			return
-		}
-		itemsMu.Lock()
-		items[id] = item{ID: id, Name: body.Name} // べき等: 同じボディなら結果も同じ状態になる
-		itemsMu.Unlock()
-		w.WriteHeader(http.StatusOK)
-
-	case http.MethodDelete:
-		if _, ok := requireSession(w, r); !ok {
-			return
-		}
-		itemsMu.Lock()
-		delete(items, id)
-		itemsMu.Unlock()
-		w.WriteHeader(http.StatusNoContent)
-	}
-}
-
 func main() {
+	store := itemsresource.NewStore()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /login", handleLogin)
 	mux.HandleFunc("POST /logout", handleLogout)
 	mux.HandleFunc("GET /me", handleMe)
-	mux.HandleFunc("/items", handleItemsCollection)
-	mux.HandleFunc("/items/{id}", handleItem)
+
+	// 安全なメソッドはガード無し、副作用のあるメソッドだけ認証必須にする。
+	mux.HandleFunc("GET /items", itemsresource.ListHandler(store))
+	mux.HandleFunc("GET /items/{id}", itemsresource.GetHandler(store))
+	mux.HandleFunc("POST /items", requireSession(itemsresource.CreateHandler(store)))
+	mux.HandleFunc("PUT /items/{id}", requireSession(itemsresource.ReplaceHandler(store)))
+	mux.HandleFunc("DELETE /items/{id}", requireSession(itemsresource.DeleteHandler(store)))
 
 	log.Println("stage1-session listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))

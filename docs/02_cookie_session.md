@@ -1,6 +1,6 @@
 # 02. Cookieセッション認証
 
-`stage1-session`の実装(`cmd/stage1-session/main.go`)を読みながら進める。
+`stage1-session`の実装(`cmd/stage1-session/main.go`)を読みながら進める。`/items`リソース自体は1章の`stage0-rest`と完全に同じ(`internal/itemsresource`を共有している)。違うのは、安全なメソッド(GET)はそのまま素通しし、副作用のあるメソッド(POST/PUT/DELETE)だけを`requireSession`というミドルウェアでガードしている点。RESTの意味論(安全性・べき等性)と認証の境界線がどこで交わるかを、このstageで見る。
 
 ## 仕組み
 
@@ -34,9 +34,18 @@ go run ./cmd/stage1-session
 ```
 
 ```
+# 1章と同じGETは認証なしで通る(安全なメソッドはガード対象外)
+curl -i localhost:8080/items
+
+# 同じPOSTが今度は401になる — stage0との違いはここだけ
+curl -i -X POST localhost:8080/items -d '{"Name":"x"}'
+
 # -v でレスポンスヘッダを見る。Set-Cookie: session_id=... と HttpOnly を確認
 curl -v -c /tmp/cookies.txt -X POST localhost:8080/login \
   -d '{"Username":"alice","Password":"password123"}'
+
+# ログイン後は同じPOSTが201で通る
+curl -i -b /tmp/cookies.txt -X POST localhost:8080/items -d '{"Name":"widget"}'
 
 # 保存したCookieで自分の情報を取得
 curl -b /tmp/cookies.txt localhost:8080/me

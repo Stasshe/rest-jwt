@@ -6,7 +6,7 @@
 go run ./cmd/stage5-jwt-secure
 ```
 
-`internal/securecodec/codec.go`を開きながら読む。ライブラリは`github.com/golang-jwt/jwt/v5`(3〜7章の手実装で中身を理解した上で、実運用では信頼された実装に任せる)。
+`cmd/stage5-jwt-secure/main.go`を開きながら読む。ライブラリは`github.com/golang-jwt/jwt/v5`(3〜7章の手実装で中身を理解した上で、実運用では信頼された実装に任せる)。
 
 ## 直っている点
 
@@ -35,7 +35,7 @@ JWTの弱点は「即時失効が難しい」ことだった(3章の比較表)�
 
 **4. Cookie属性**
 
-`internal/authserver/server.go`の`setCookie`は`HttpOnly`と`SameSite=Lax`を全stage共通で付けている。JWTだからといってlocalStorageに保存する必要はない — むしろHttpOnly Cookieに入れておけばXSSからは読めず、2章で学んだCookieの防御がそのままJWTにも効く。その代わりCSRFの検討は引き続き必要になる(このAPIは`Content-Type: application/json`を要求する設計にしており、単純なHTMLフォームからは送れない、というのも軽減策の一つ)。
+各stageの`setCookie`(または`http.SetCookie`)は`HttpOnly`と`SameSite=Lax`を毎回付けている。JWTだからといってlocalStorageに保存する必要はない — むしろHttpOnly Cookieに入れておけばXSSからは読めず、2章で学んだCookieの防御がそのままJWTにも効く。その代わりCSRFの検討は引き続き必要になる(このAPIは`Content-Type: application/json`を要求する設計にしており、単純なHTMLフォームからは送れない、というのも軽減策の一つ)。
 
 ## 3つの攻撃が通らないことを確認する
 
@@ -57,4 +57,4 @@ curl -i localhost:8080/pubkey   # 404になるはず
 
 ## 動かして確かめる演習
 
-`internal/securecodec/codec.go`の`accessTokenTTL`を`2*time.Minute`から`10*time.Second`に変えて`stage5`を再起動する。ログインしてすぐ`/me`が通り、10秒待ってから叩くと401になることを確認する。その後`POST /refresh`を叩けば新しいアクセストークンが発行され、また`/me`が通るようになる — アクセストークンとリフレッシュトークンの役割分担を、実際の時間経過で体感する。
+`cmd/stage5-jwt-secure/main.go`の`accessTokenTTL`を`2*time.Minute`から`10*time.Second`に変えて`stage5`を再起動する。ログインしてすぐ`/me`が通り、10秒待ってから叩くと401になることを確認する。その後`POST /refresh`を叩けば新しいアクセストークンが発行され、また`/me`が通るようになる — アクセストークンとリフレッシュトークンの役割分担を、実際の時間経過で体感する。

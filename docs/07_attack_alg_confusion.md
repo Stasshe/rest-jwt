@@ -13,15 +13,15 @@ RS256は共通鍵(HS256)と違い、非対称鍵を使う。
 - 署名: **秘密鍵**(サーバだけが持つ)
 - 検証: **公開鍵**(誰に見られてもよい。むしろAPIとして公開することが多い — 実際のJWKSエンドポイントがこれ)
 
-`internal/confusioncodec/codec.go`の`Verify`を見る。
+`cmd/stage4-jwt-alg-confusion/main.go`の`verifyToken`を見る。
 
 ```go
-switch h.Alg {
+switch header.Alg {
 case "RS256":
     // 公開鍵でRSA署名を検証(正しい)
 case "HS256":
-    mac := hmac.New(sha256.New, c.PublicKeyPEM())
-    // 公開鍵のPEMバイト列を「HMAC共通鍵」として使っている
+    mac := hmac.New(sha256.New, publicKeyPEM())
+    // バグ: 公開鍵のPEMバイト列を「HMAC共通鍵」として使っている
 ```
 
 ここが壊れている場所。RS256用の**公開**鍵を、HS256用の**秘密**鍵として使い回している。公開鍵は名前の通り公開情報 — このサーバ自身が`GET /pubkey`で配っている。つまり**攻撃者は正規の手順で入手した公開鍵を使い、自分でHMAC署名したトークンを作れる**。サーバ側は「algがHS256なら、その値をHMAC鍵として使う」というコードを書いた時点で、非対称鍵のはずの公開鍵を対称鍵に転用してしまっている。

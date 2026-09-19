@@ -4,17 +4,14 @@
 
 ## 理論
 
-`internal/hmaccodec/codec.go`の`Verify`をもう一度見る。
+`cmd/stage2-jwt-alg-none/main.go`の`verifyToken`をもう一度見る。
 
 ```go
-switch h.Alg {
+switch header.Alg {
 case "HS256":
     // 署名を検証する
 case "none":
-    if !c.AllowAlgNone {
-        return authserver.Claims{}, errors.New(`alg "none" rejected`)
-    }
-    // 何も検証しない
+    // バグ: 署名部分(parts[2])を完全に無視している
 ```
 
 JWTの仕様(RFC 7519)には署名なしの`alg:"none"`という値が実在する(デバッグ用途などを想定したもの)。サーバがこれを無条件に許可すると、**攻撃者は署名部分を空文字にしたトークンを、好きなpayloadで作れてしまう**。秘密鍵は一切不要。

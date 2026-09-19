@@ -12,13 +12,14 @@ REST APIの認証をセッションCookieからJWTへ置き換える過程を、
 
 | # | サーバ | 学ぶこと |
 |---|--------|----------|
-| 1 | `cmd/stage1-session` | RESTのメソッド/ステータスコード、Cookieセッション認証 |
+| 0 | `cmd/stage0-rest` | REST自体の仕組み: メソッドの安全性/べき等性、ステータスコード、認証なし |
+| 1 | `cmd/stage1-session` | stage0と同じリソースにCookieセッション認証を重ねる |
 | 2 | `cmd/stage2-jwt-alg-none` | JWTの構造、`alg:none`偽造 |
 | 3 | `cmd/stage3-jwt-weak-secret` | 署名鍵の総当たり攻撃 |
 | 4 | `cmd/stage4-jwt-alg-confusion` | RS256/HS256混同攻撃 |
 | 5 | `cmd/stage5-jwt-secure` | 正しい検証・鍵管理・失効設計 |
 
-各stageは同じ`:8080`で1つずつ起動する(複数同時起動しない)。サーバコードはstage間で使い回せる部分を`internal/authserver`に共通化し、stageごとの違いは`internal/*codec`の検証ロジック1点に絞ってある。攻撃には`tools/forge`(トークン偽造)と`tools/bruteforce`(鍵の総当たり)を使う。
+各stageは同じ`:8080`で1つずつ起動する(複数同時起動しない)。`/items`リソースのCRUDロジックは`internal/itemsresource`にまとめ、stage0とstage1はこれをそのまま共有する(違いは認証ミドルウェアの有無だけ)。stage2〜5(JWT)は`internal/userstore`以外を外部パッケージに切り出さず、`cmd/stageN.../main.go`1本に発行・検証・HTTPハンドラを全部書いている — ファイルを跨がず上から下に読めば追える構成にしてある。攻撃には`tools/forge`(トークン偽造)と`tools/bruteforce`(鍵の総当たり)を使う。
 
 ## 進め方(目安 約4時間20分)
 
@@ -35,7 +36,7 @@ REST APIの認証をセッションCookieからJWTへ置き換える過程を、
 ## 起動方法
 
 ```
-go run ./cmd/stage1-session
+go run ./cmd/stage0-rest
 ```
 
-起動したまま別ターミナルで`curl`や`tools/forge`を実行する。次のstageに進むときは`Ctrl+C`で止めてから次のコマンドを打つ(ポート`8080`は1つのstageしか使えない)。
+起動したまま別ターミナルで`curl`や`tools/forge`を実行する。次のstageに進むときは`Ctrl+C`で止めてから次のコマンド(`go run ./cmd/stage1-session`など)を打つ(ポート`8080`は1つのstageしか使えない)。
