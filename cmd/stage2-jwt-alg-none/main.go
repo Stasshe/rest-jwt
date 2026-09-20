@@ -19,6 +19,8 @@ import (
 )
 
 // secretはこのサーバだけが知っているはずの署名鍵。
+// このstageの論点は鍵の強さ(stage3)ではない。壊れているのは、
+// verifyTokenが「鍵で検証するかどうか」をトークンに決めさせている点。
 var secret = []byte("s0m3-r4nd0m-s3rv3r-secret!")
 
 // claimsはトークンの中身(payload)。
@@ -45,8 +47,25 @@ func issueToken(sub, role string) string {
 	return signingInput + "." + sig
 }
 
-// verifyToken がこのstageの本体。header.alg を信用して分岐している
-// のがバグの根っこ — alg:"none" なら署名を一切見ずに通してしまう。
+// verifyToken がこのstageの本体。
+//
+// 何がダメか:
+//
+//	検証方法を選ぶ switch header.Alg の入力が、攻撃者の送ったトークン自身。
+//	JWTのheader/payloadはbase64urlの平文JSONで、誰でも書き換えられる。
+//	改ざんを防ぐのは署名だけなのに、「署名を検証するか」まで署名の外側
+//	(header)に申告させている。検証される側が検証ルールを決めている。
+//
+// 攻撃:
+//
+//	header={"alg":"none"}, payload={"sub":"mallory","role":"admin","exp":...},
+//	署名=空 → "<b64 header>.<b64 payload>." を送るだけ。秘密鍵は不要。
+//	handleAdmin はroleクレームだけで認可するので /admin まで通る。
+//
+// 直し方:
+//
+//	algをトークンから読んで分岐しない。サーバ側で許可するalgを固定し
+//	(stage3は HS256 のみ、stage5は WithValidMethods)、それ以外は拒否。
 func verifyToken(token string) (claims, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -73,6 +92,10 @@ func verifyToken(token string) (claims, error) {
 	case "none":
 		// バグ: alg=noneのときは検証すべきものが無い、として
 		// 署名部分(parts[2])を完全に無視している。
+		// ここに来た時点でreturnもエラーも無いので、下のpayload処理へ
+		// そのまま進み、攻撃者が書いたクレームが「検証済み」として返る。
+		// RFC 7519に"none"(署名なしJWT)は実在するが、それは署名以外の経路で
+		// 完全性が守られている場合の話。認証トークンとして受け付けてはいけない。
 	default:
 		return claims{}, errors.New("unsupported alg")
 	}

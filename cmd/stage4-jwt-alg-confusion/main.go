@@ -62,6 +62,27 @@ func issueToken(sub, role string) (string, error) {
 
 // verifyToken がこのstageの本体。RS256は公開鍵で正しく検証するが、
 // HS256の分岐だけ「公開鍵のPEMバイト列」をHMAC鍵として誤用している。
+//
+// 何がダメか:
+//
+//	stage2と同根: 検証方法(switch header.Alg)をトークン自身に決めさせている。
+//	サーバの意図は「RS256のみ」なのに、HS256(対称鍵)の分岐も生きている。
+//	さらに鍵がalgと結び付いておらず、同じ公開鍵が
+//	  RS256 → 検証用の公開鍵(公開してよい)
+//	  HS256 → HMACの共通鍵(秘密でなければならない)
+//	の両方の役で使われる。公開が前提の値を秘密鍵として使う設計になっている。
+//
+// 攻撃(RS256/HS256混同):
+//
+//  1. GET /pubkey で公開鍵PEMを取る(サーバが自分で配っている)。
+//  2. header={"alg":"HS256"} にして、PEMのバイト列をHMAC鍵に署名した
+//     トークンを作る。秘密鍵もブルートフォースも不要。
+//  3. サーバは alg=HS256 を見て、同じPEMをHMAC鍵に検証 → 署名が一致して通る。
+//
+// 直し方:
+//
+//	許可するalgをサーバ側で固定する(stage5のWithValidMethods)。
+//	1つの鍵は1つのalgにだけ紐付け、公開鍵をHMAC鍵として渡す経路を作らない。
 func verifyToken(token string) (claims, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -90,6 +111,9 @@ func verifyToken(token string) (claims, error) {
 	case "HS256":
 		// バグ: "秘密鍵"として公開鍵のPEMを使っている。この値は
 		// GET /pubkeyを叩いた者なら誰でも持っている。
+		// 公開鍵を配ること自体は正しい(JWKSと同じ)。誤りは、その公開鍵を
+		// HMACの秘密として使う分岐が、攻撃者の指定するalgで到達可能な点。
+		// このcaseを消すだけで攻撃は成立しなくなる。
 		mac := hmac.New(sha256.New, publicKeyPEM())
 		mac.Write([]byte(signingInput))
 		want := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
