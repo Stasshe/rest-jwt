@@ -1,8 +1,8 @@
-// Stage 3: stage2とほぼ同じファイル。違いは verifyToken から
+// Stage 4: stage3とほぼ同じファイル。違いは verifyToken から
 // alg:none の抜け道が消えていること(検証ロジックは正しい)、その
-// 代わり secret が辞書に載るほど短いこと。stage2と見比べて、
+// 代わり secret が辞書に載るほど短いこと。stage3と見比べて、
 // 直った箇所と残っているバグの場所を探すとよい。
-// 実行: go run ./cmd/stage3-jwt-weak-secret — docs/06_attack_weak_secret.md 参照
+// 実行: go run ./cmd/stage4-jwt-weak-secret — docs/05_jwt_weak_secret.md 参照
 package main
 
 import (
@@ -43,7 +43,7 @@ func issueToken(sub, role string) string {
 	return signingInput + "." + sig
 }
 
-// verifyToken: alg:noneは拒否する(stage2のバグは無い)。ただし
+// verifyToken: alg:noneは拒否する(stage3のバグは無い)。ただし
 // secretの値そのものが弱いので、署名検証は正しくても偽造できる。
 func verifyToken(token string) (claims, error) {
 	parts := strings.Split(token, ".")
@@ -168,6 +168,6 @@ func main() {
 	mux.HandleFunc("GET /me", handleMe)
 	mux.HandleFunc("GET /admin", handleAdmin)
 
-	log.Println("stage3-jwt-weak-secret listening on :8080")
+	log.Println("stage4-jwt-weak-secret listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }

@@ -1,9 +1,9 @@
-// Stage 4: サーバはRS256でトークンを発行し、GET /pubkeyで公開鍵を
+// Stage 5: サーバはRS256でトークンを発行し、GET /pubkeyで公開鍵を
 // 公開する(実際のJWKSエンドポイントと同じ)。しかし検証側はトークン
 // 自身の"alg"ヘッダを依然として信用しており、alg=HS256のときは
 // その公開鍵のバイト列をHMAC鍵として使ってしまう — 公開鍵は
 // 公開が前提の値なので、誰でも読める鍵で署名した偽トークンが通る。
-// 実行: go run ./cmd/stage4-jwt-alg-confusion — docs/07_attack_alg_confusion.md 参照
+// 実行: go run ./cmd/stage5-jwt-alg-confusion — docs/06_jwt_alg_confusion.md 参照
 package main
 
 import (
@@ -215,6 +215,6 @@ func main() {
 	mux.HandleFunc("GET /admin", handleAdmin)
 	mux.HandleFunc("GET /pubkey", handlePubkey)
 
-	log.Println("stage4-jwt-alg-confusion listening on :8080")
+	log.Println("stage5-jwt-alg-confusion listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }

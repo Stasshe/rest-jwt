@@ -1,10 +1,10 @@
-// Stage 5: 修正版サーバ。ライブラリ(golang-jwt/v5)を使い、
+// Stage 7: 修正版サーバ。ライブラリ(golang-jwt/v5)を使い、
 // アルゴリズムを明示的に許可リスト化して(トークン自身の"alg"
 // ヘッダを絶対に信用しない)、十分に長いランダム鍵を使い、
 // 短命なアクセストークンをサーバ側のリフレッシュセッションで
 // 裏打ちする。ログアウトはこのリフレッシュセッションを消すだけ
 // — 素のステートレスJWTにはできない「取り消し」をここで補っている。
-// 実行: go run ./cmd/stage5-jwt-secure — docs/08_defense.md 参照
+// 実行: go run ./cmd/stage7-jwt-secure — docs/08_jwt_defense.md 参照
 package main
 
 import (
@@ -27,12 +27,12 @@ const (
 	refreshTokenTTL = 30 * time.Minute
 )
 
-// secretはstage2/3と違い、起動のたびに生成する32バイトの乱数
+// secretはstage3/4と違い、起動のたびに生成する32バイトの乱数
 // (実運用ではシークレット管理システムからロードする)。
 var secret []byte
 
 // refreshSessions はサーバ側で握っているリフレッシュトークンの実体。
-// Cookieセッション(stage1)と同じ発想 — アクセストークンは
+// Cookieセッション(stage6)と同じ発想 — アクセストークンは
 // ステートレスなJWTに、リフレッシュだけはサーバ側の状態に戻している。
 var (
 	sessionsMu sync.Mutex
@@ -58,7 +58,7 @@ func issueAccessToken(sub, role string) (string, error) {
 
 // verifyAccessToken がこのstageの要。WithValidMethodsでアルゴリズムを
 // サーバ側に固定しており、トークンのヘッダからは一切読まない
-// — stage2(none)とstage4(RS256/HS256混同)の両方への対策になる。
+// — stage3(none)とstage5(RS256/HS256混同)の両方への対策になる。
 func verifyAccessToken(tokenStr string) (sub, role string, err error) {
 	parsed, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		return secret, nil
@@ -223,6 +223,6 @@ func main() {
 	mux.HandleFunc("GET /me", handleMe)
 	mux.HandleFunc("GET /admin", handleAdmin)
 
-	log.Println("stage5-jwt-secure listening on :8080")
+	log.Println("stage7-jwt-secure listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
